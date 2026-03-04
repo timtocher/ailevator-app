@@ -2,12 +2,13 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat } from 'ai/react';
-import { ChevronLeft, ChevronRight, Play, Pause, Send, Bot, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Play, Pause, Send, Bot, User, Volume2, VolumeX } from 'lucide-react';
 import { presentationData } from '../presentationData';
 
 export default function InteractivePitchDeck() {
   const [currentIndex, setCurrentIndex] = useState(0); 
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false); // NEW MUTE STATE
   const audioRef = useRef(null);
 
   const currentSlideData = presentationData[currentIndex];
@@ -32,14 +33,22 @@ export default function InteractivePitchDeck() {
     setIsPlaying(!isPlaying);
   };
 
+  const toggleMute = () => {
+    setIsMuted(!isMuted);
+    if (audioRef.current) {
+      audioRef.current.muted = !isMuted;
+    }
+  };
+
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.src = currentSlideData.audio;
+      audioRef.current.muted = isMuted; // ENSURE MUTE STAYS ON DURING SLIDE CHANGES
       if (isPlaying) {
         audioRef.current.play().catch(e => console.log("Audio play prevented:", e));
       }
     }
-  }, [currentIndex, currentSlideData.audio, isPlaying]);
+  }, [currentIndex, currentSlideData.audio, isPlaying, isMuted]);
 
   const handleNextSlide = () => {
     if (currentIndex < totalSlides - 1) setCurrentIndex(currentIndex + 1);
@@ -64,28 +73,38 @@ export default function InteractivePitchDeck() {
         </div>
 
         <div className="flex-grow flex items-center justify-center bg-slate-900 rounded-xl border border-slate-800 shadow-inner overflow-hidden relative aspect-video">
-          {/* Fallback text while you upload images */}
           <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 z-0">
-            <span>Upload {currentSlideData.image} to GitHub</span>
+            <span>Loading {currentSlideData.image}...</span>
           </div>
           <img 
             src={currentSlideData.image} 
             alt={currentSlideData.title} 
             className="object-contain w-full h-full z-10 relative"
-            onError={(e) => e.target.style.opacity = 0} // Hides broken image icon if missing
+            onError={(e) => e.target.style.opacity = 0} 
           />
         </div>
 
         <audio ref={audioRef} onEnded={handleNextSlide} className="hidden" />
 
         <div className="mt-6 flex items-center justify-between bg-slate-900 p-4 rounded-lg border border-slate-800">
-          <button 
-            onClick={toggleAudio}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors"
-          >
-            {isPlaying ? <Pause size={18} /> : <Play size={18} />}
-            <span className="font-medium">{isPlaying ? 'Pause Audio' : 'Play Presentation'}</span>
-          </button>
+          <div className="flex gap-3">
+            <button 
+              onClick={toggleAudio}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors"
+            >
+              {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+              <span className="font-medium">{isPlaying ? 'Pause' : 'Play'}</span>
+            </button>
+            
+            {/* NEW MUTE BUTTON */}
+            <button 
+              onClick={toggleMute}
+              className="flex items-center justify-center p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition-colors"
+              title={isMuted ? "Unmute" : "Mute"}
+            >
+              {isMuted ? <VolumeX size={20} className="text-red-400" /> : <Volume2 size={20} />}
+            </button>
+          </div>
 
           <div className="flex gap-3">
             <button 
@@ -130,7 +149,6 @@ export default function InteractivePitchDeck() {
                   : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-tl-none'
               }`}>
                 {msg.content}
-                {/* Visual indicator if a tool was called */}
                 {msg.toolInvocations?.map(tool => (
                   <div key={tool.toolCallId} className="mt-2 p-2 bg-slate-950 text-xs rounded border border-slate-700 text-blue-400">
                     ⚙️ Executing: {tool.toolName}...
